@@ -1,3 +1,39 @@
 spring:
   application:
     name: user-service
+  profiles:
+    active: local
+
+  datasource:
+    hikari:
+      connection-timeout: 5000
+
+  liquibase:
+    enabled: true
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+
+  security:
+    user:
+      name: user
+      password: password
+
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        format_sql: true
+    implicit-naming-strategy: org.springframework.boot.jpa.orm.hibernate.SpringImplicitNamingStrategy
+    physical-naming-strategy: org.springframework.boot.jpa.orm.hibernate.CamelCaseToUnderscoresNamingStrategy
+
+  jackson:
+    time-zone: UTC
+
+  data:
+    cache:
+      type: redis
+      redis:
+        time-to-live: 600000
+        use-key-prefix: true
+        cache-null-values: false
