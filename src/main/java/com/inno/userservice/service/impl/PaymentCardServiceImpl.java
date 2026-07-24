@@ -1,12 +1,12 @@
 package com.inno.userservice.service.impl;
 
-import static com.inno.userservice.exception.BaseAppExceptionBuilder.buildConflictException;
-import static com.inno.userservice.exception.BaseAppExceptionBuilder.buildNotFoundException;
-import static com.inno.userservice.exception.ExceptionMessages.PAYMENT_CARD_ALREADY_EXISTS_WITH_NUMBER;
-import static com.inno.userservice.exception.ExceptionMessages.PAYMENT_CARD_LIMIT_EXCEEDED;
-import static com.inno.userservice.exception.ExceptionMessages.PAYMENT_CARD_NOT_FOUND;
-import static com.inno.userservice.exception.ExceptionMessages.USER_NOT_FOUND;
-
+import java.util.List;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import com.inno.userservice.cache.UserCacheEvictor;
 import com.inno.userservice.dto.request.PaymentCardCreateRequestDTO;
 import com.inno.userservice.dto.request.PaymentCardUpdateRequestDTO;
 import com.inno.userservice.dto.response.PaymentCardResponseDTO;
@@ -16,16 +16,17 @@ import com.inno.userservice.mapper.PaymentCardMapper;
 import com.inno.userservice.repository.PaymentCardRepository;
 import com.inno.userservice.repository.UserRepository;
 import com.inno.userservice.service.PaymentCardService;
-import java.util.List;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.Cache;
-import org.springframework.cache.CacheManager;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+
+import static com.inno.userservice.cache.CacheConstants.USERS_CACHE;
+import static com.inno.userservice.exception.BaseAppExceptionBuilder.buildConflictException;
+import static com.inno.userservice.exception.BaseAppExceptionBuilder.buildNotFoundException;
+import static com.inno.userservice.exception.ExceptionMessages.PAYMENT_CARD_ALREADY_EXISTS_WITH_NUMBER;
+import static com.inno.userservice.exception.ExceptionMessages.PAYMENT_CARD_LIMIT_EXCEEDED;
+import static com.inno.userservice.exception.ExceptionMessages.PAYMENT_CARD_NOT_FOUND;
+import static com.inno.userservice.exception.ExceptionMessages.USER_NOT_FOUND;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -35,11 +36,11 @@ public class PaymentCardServiceImpl implements PaymentCardService {
   private final PaymentCardMapper paymentCardMapper;
   private final PaymentCardRepository paymentCardRepository;
   private final UserRepository userRepository;
-  private final CacheManager cacheManager;
+  private final UserCacheEvictor userCacheEvictor;
 
   @Override
   @Transactional
-  @CacheEvict(value = "users", key = "#dto.userId()")
+  @CacheEvict(value = USERS_CACHE, key = "#dto.userId()")
   public PaymentCardResponseDTO create(PaymentCardCreateRequestDTO dto) {
 
     if (paymentCardRepository.existsByNumber(dto.number())) {
@@ -77,7 +78,7 @@ public class PaymentCardServiceImpl implements PaymentCardService {
 
   @Override
   @Transactional
-  @CacheEvict(value = "users", key = "#result.id")
+  @CacheEvict(value = USERS_CACHE, key = "#result.id")
   public PaymentCardResponseDTO update(Long cardId, PaymentCardUpdateRequestDTO dto) {
 
     PaymentCard card =
@@ -147,9 +148,8 @@ public class PaymentCardServiceImpl implements PaymentCardService {
     paymentCardRepository.activatePaymentCard(cardId);
     log.info("Payment card activated | cardId={}", cardId);
 
-    Cache cache = cacheManager.getCache("users");
-    if (cache != null && card.getUser() != null) {
-      cache.evict(card.getUser().getId());
+    if (card.getUser() != null) {
+      userCacheEvictor.evictUserById(card.getUser().getId());
     }
   }
 
@@ -168,9 +168,8 @@ public class PaymentCardServiceImpl implements PaymentCardService {
     paymentCardRepository.deactivatePaymentCard(cardId);
     log.info("Payment card deactivated | cardId={}", cardId);
 
-    Cache cache = cacheManager.getCache("users");
-    if (cache != null && card.getUser() != null) {
-      cache.evict(card.getUser().getId());
+    if (card.getUser() != null) {
+      userCacheEvictor.evictUserById(card.getUser().getId());
     }
   }
 }

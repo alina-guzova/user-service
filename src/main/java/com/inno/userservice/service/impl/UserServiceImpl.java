@@ -1,10 +1,12 @@
 package com.inno.userservice.service.impl;
 
-import static com.inno.userservice.exception.BaseAppExceptionBuilder.buildConflictException;
-import static com.inno.userservice.exception.BaseAppExceptionBuilder.buildNotFoundException;
-import static com.inno.userservice.exception.ExceptionMessages.USER_ALREADY_EXISTS_WITH_EMAIL;
-import static com.inno.userservice.exception.ExceptionMessages.USER_NOT_FOUND;
-
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import com.inno.userservice.dto.request.UserCreateRequestDTO;
 import com.inno.userservice.dto.request.UserFilterDTO;
 import com.inno.userservice.dto.request.UserUpdateRequestDTO;
@@ -14,15 +16,15 @@ import com.inno.userservice.mapper.UserMapper;
 import com.inno.userservice.repository.UserRepository;
 import com.inno.userservice.repository.specification.UserSpecifications;
 import com.inno.userservice.service.UserService;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.domain.Specification;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+
+import static com.inno.userservice.cache.CacheConstants.USERS_CACHE;
+import static com.inno.userservice.exception.BaseAppExceptionBuilder.buildConflictException;
+import static com.inno.userservice.exception.BaseAppExceptionBuilder.buildNotFoundException;
+import static com.inno.userservice.exception.ExceptionMessages.USER_ALREADY_EXISTS_WITH_EMAIL;
+import static com.inno.userservice.exception.ExceptionMessages.USER_NOT_FOUND;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -50,7 +52,7 @@ public class UserServiceImpl implements UserService {
 
   @Override
   @Transactional
-  @CacheEvict(value = "users", key = "#userId", beforeInvocation = false)
+  @CacheEvict(value = USERS_CACHE, key = "#userId", beforeInvocation = false)
   public UserResponseDTO update(Long userId, UserUpdateRequestDTO dto) {
 
     User user =
@@ -71,7 +73,7 @@ public class UserServiceImpl implements UserService {
 
   @Override
   @Transactional(readOnly = true)
-  @Cacheable(value = "users", key = "#userId")
+  @Cacheable(value = USERS_CACHE, key = "#userId")
   public UserResponseDTO getById(Long userId) {
 
     User user =
@@ -99,7 +101,7 @@ public class UserServiceImpl implements UserService {
 
   @Override
   @Transactional
-  @CacheEvict(value = "users", key = "#userId", beforeInvocation = false)
+  @CacheEvict(value = USERS_CACHE, key = "#userId", beforeInvocation = false)
   public void activate(Long userId) {
     int updatedRows = userRepository.activateUser(userId);
 
@@ -112,7 +114,7 @@ public class UserServiceImpl implements UserService {
 
   @Override
   @Transactional
-  @CacheEvict(value = "users", key = "#userId", beforeInvocation = false)
+  @CacheEvict(value = USERS_CACHE, key = "#userId", beforeInvocation = false)
   public void deactivate(Long userId) {
     int updatedRows = userRepository.deactivateUser(userId);
 
