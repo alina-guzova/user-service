@@ -45,7 +45,7 @@ public class User {
   @Column(name = "birth_date", nullable = false)
   private LocalDate birthDate;
 
-  @Column(name = "email", nullable = false)
+  @Column(name = "email", nullable = false, unique = true)
   private String email;
 
   @OneToMany(mappedBy = "user", orphanRemoval = true, cascade = CascadeType.ALL)

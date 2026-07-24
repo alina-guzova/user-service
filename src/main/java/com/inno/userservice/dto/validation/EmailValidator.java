@@ -3,6 +3,7 @@ package com.inno.userservice.dto.validation;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
 import java.util.regex.Pattern;
+import org.apache.commons.lang3.StringUtils;
 
 public class EmailValidator implements ConstraintValidator<ValidEmail, String> {
 
@@ -11,7 +12,7 @@ public class EmailValidator implements ConstraintValidator<ValidEmail, String> {
 
   @Override
   public boolean isValid(String email, ConstraintValidatorContext constraintValidatorContext) {
-    if (email == null || email.isBlank()) {
+    if (StringUtils.isBlank(email)) {
       return false;
     }
     return PATTERN.matcher(email).matches();

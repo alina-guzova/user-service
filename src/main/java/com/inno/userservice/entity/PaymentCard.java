@@ -39,7 +39,7 @@ public class PaymentCard {
   @JoinColumn(name = "user_id", nullable = false)
   private User user;
 
-  @Column(name = "number", nullable = false, updatable = false)
+  @Column(name = "number", nullable = false, unique = true, updatable = false)
   private String number;
 
   @Column(name = "holder", nullable = false)

@@ -32,6 +32,8 @@ public class GlobalExceptionHandler {
             .map(fieldError -> fieldError.getDefaultMessage())
             .toList();
 
+    log.warn("Validation failed | errorsCount={}, details={}", errors.size(), errors);
+
     ExceptionResponseDTO response =
         ExceptionResponseDTO.of(HttpStatus.BAD_REQUEST, "Validation failed", errors);
 
@@ -41,6 +43,8 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(HttpMessageNotReadableException.class)
   public ResponseEntity<ExceptionResponseDTO> handleHttpMessageNotReadable(
       HttpMessageNotReadableException ex) {
+    log.warn("Failed to read HTTP message: invalid JSON or malformed payload");
+
     ExceptionResponseDTO response =
         ExceptionResponseDTO.of(
             HttpStatus.BAD_REQUEST, "Incorrect JSON request or invalid data format");
@@ -51,6 +55,8 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
   public ResponseEntity<ExceptionResponseDTO> handleMethodNotSupported(
       HttpRequestMethodNotSupportedException ex) {
+    log.warn("HTTP method not supported | method={}", ex.getMethod());
+
     ExceptionResponseDTO response =
         ExceptionResponseDTO.of(
             HttpStatus.METHOD_NOT_ALLOWED,
@@ -62,6 +68,8 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(MissingServletRequestParameterException.class)
   public ResponseEntity<ExceptionResponseDTO> handleMissingParams(
       MissingServletRequestParameterException ex) {
+    log.warn("Missing required request parameter | paramName={}", ex.getParameterName());
+
     ExceptionResponseDTO response =
         ExceptionResponseDTO.of(
             HttpStatus.BAD_REQUEST,

@@ -1,6 +1,12 @@
 package com.inno.userservice.controller;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import com.inno.userservice.dto.request.UserCreateRequestDTO;
+import com.inno.userservice.dto.request.UserFilterDTO;
+import com.inno.userservice.dto.request.UserUpdateRequestDTO;
+import com.inno.userservice.dto.response.UserResponseDTO;
+import com.inno.userservice.service.UserService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -14,24 +20,13 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import com.inno.userservice.dto.request.UserCreateRequestDTO;
-import com.inno.userservice.dto.request.UserFilterDTO;
-import com.inno.userservice.dto.request.UserUpdateRequestDTO;
-import com.inno.userservice.dto.response.UserResponseDTO;
-import com.inno.userservice.service.UserService;
 
-import jakarta.validation.Valid;
-
+@RequiredArgsConstructor
 @RestController
 @RequestMapping("api/v1/users")
 public class UserController {
 
   private final UserService userService;
-
-  @Autowired
-  public UserController(UserService userService) {
-    this.userService = userService;
-  }
 
   @PostMapping
   public ResponseEntity<UserResponseDTO> create(

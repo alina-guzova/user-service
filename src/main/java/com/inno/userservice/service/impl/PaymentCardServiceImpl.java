@@ -17,7 +17,8 @@ import com.inno.userservice.repository.PaymentCardRepository;
 import com.inno.userservice.repository.UserRepository;
 import com.inno.userservice.service.PaymentCardService;
 import java.util.List;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
@@ -26,6 +27,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
+@RequiredArgsConstructor
 @Service
 public class PaymentCardServiceImpl implements PaymentCardService {
 
@@ -34,40 +37,42 @@ public class PaymentCardServiceImpl implements PaymentCardService {
   private final UserRepository userRepository;
   private final CacheManager cacheManager;
 
-  @Autowired
-  public PaymentCardServiceImpl(
-      PaymentCardMapper paymentCardMapper,
-      PaymentCardRepository paymentCardRepository,
-      UserRepository userRepository,
-      CacheManager cacheManager) {
-    this.paymentCardMapper = paymentCardMapper;
-    this.paymentCardRepository = paymentCardRepository;
-    this.userRepository = userRepository;
-    this.cacheManager = cacheManager;
-  }
-
   @Override
   @Transactional
   @CacheEvict(value = "users", key = "#dto.userId()")
   public PaymentCardResponseDTO create(PaymentCardCreateRequestDTO dto) {
 
     if (paymentCardRepository.existsByNumber(dto.number())) {
+      log.warn(
+          "Payment card creation failed: card number already exists for userId={}", dto.userId());
       throw buildConflictException(PAYMENT_CARD_ALREADY_EXISTS_WITH_NUMBER, dto.number());
     }
 
     User user =
         userRepository
             .findById(dto.userId())
-            .orElseThrow(() -> buildNotFoundException(USER_NOT_FOUND, dto.userId()));
+            .orElseThrow(
+                () -> {
+                  log.warn(
+                      "Payment card creation failed: user not found | userId={}", dto.userId());
+                  return buildNotFoundException(USER_NOT_FOUND, dto.userId());
+                });
 
     if (userRepository.countCardsByUserId(dto.userId()) >= 5) {
+      log.warn("Payment card creation failed: limit reached for userId={}", dto.userId());
       throw buildConflictException(PAYMENT_CARD_LIMIT_EXCEEDED, dto.userId());
     }
 
     PaymentCard paymentCard = paymentCardMapper.toEntity(dto);
     paymentCard.setUser(user);
 
-    return paymentCardMapper.toDto(paymentCardRepository.save(paymentCard));
+    PaymentCard savedCard = paymentCardRepository.save(paymentCard);
+    log.info(
+        "Payment card created successfully | cardId={}, userId={}",
+        savedCard.getId(),
+        dto.userId());
+
+    return paymentCardMapper.toDto(savedCard);
   }
 
   @Override
@@ -78,9 +83,14 @@ public class PaymentCardServiceImpl implements PaymentCardService {
     PaymentCard card =
         paymentCardRepository
             .findById(cardId)
-            .orElseThrow(() -> buildNotFoundException(PAYMENT_CARD_NOT_FOUND, cardId));
+            .orElseThrow(
+                () -> {
+                  log.warn("Payment card update failed: card not found | cardId={}", cardId);
+                  return buildNotFoundException(PAYMENT_CARD_NOT_FOUND, cardId);
+                });
 
     paymentCardMapper.updateEntity(dto, card);
+    log.info("Payment card updated successfully | cardId={}", cardId);
 
     return paymentCardMapper.toDto(paymentCardRepository.save(card));
   }
@@ -92,7 +102,11 @@ public class PaymentCardServiceImpl implements PaymentCardService {
     PaymentCard card =
         paymentCardRepository
             .findById(cardId)
-            .orElseThrow(() -> buildNotFoundException(PAYMENT_CARD_NOT_FOUND, cardId));
+            .orElseThrow(
+                () -> {
+                  log.warn("Payment card fetch failed: card not found | cardId={}", cardId);
+                  return buildNotFoundException(PAYMENT_CARD_NOT_FOUND, cardId);
+                });
 
     return paymentCardMapper.toDto(card);
   }
@@ -109,6 +123,7 @@ public class PaymentCardServiceImpl implements PaymentCardService {
   public List<PaymentCardResponseDTO> getAllCardsByUser(Long userId) {
 
     if (!userRepository.existsById(userId)) {
+      log.warn("Failed to get payment cards: user not found | userId={}", userId);
       throw buildNotFoundException(USER_NOT_FOUND, userId);
     }
 
@@ -123,9 +138,14 @@ public class PaymentCardServiceImpl implements PaymentCardService {
     PaymentCard card =
         paymentCardRepository
             .findById(cardId)
-            .orElseThrow(() -> buildNotFoundException(PAYMENT_CARD_NOT_FOUND, cardId));
+            .orElseThrow(
+                () -> {
+                  log.warn("Payment card activation failed: card not found | cardId={}", cardId);
+                  return buildNotFoundException(PAYMENT_CARD_NOT_FOUND, cardId);
+                });
 
     paymentCardRepository.activatePaymentCard(cardId);
+    log.info("Payment card activated | cardId={}", cardId);
 
     Cache cache = cacheManager.getCache("users");
     if (cache != null && card.getUser() != null) {
@@ -139,9 +159,14 @@ public class PaymentCardServiceImpl implements PaymentCardService {
     PaymentCard card =
         paymentCardRepository
             .findById(cardId)
-            .orElseThrow(() -> buildNotFoundException(PAYMENT_CARD_NOT_FOUND, cardId));
+            .orElseThrow(
+                () -> {
+                  log.warn("Payment card deactivation failed: card not found | cardId={}", cardId);
+                  return buildNotFoundException(PAYMENT_CARD_NOT_FOUND, cardId);
+                });
 
     paymentCardRepository.deactivatePaymentCard(cardId);
+    log.info("Payment card deactivated | cardId={}", cardId);
 
     Cache cache = cacheManager.getCache("users");
     if (cache != null && card.getUser() != null) {

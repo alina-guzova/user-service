@@ -14,7 +14,8 @@ import com.inno.userservice.mapper.UserMapper;
 import com.inno.userservice.repository.UserRepository;
 import com.inno.userservice.repository.specification.UserSpecifications;
 import com.inno.userservice.service.UserService;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
@@ -23,28 +24,28 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
+@RequiredArgsConstructor
 @Service
 public class UserServiceImpl implements UserService {
 
   private final UserRepository userRepository;
   private final UserMapper userMapper;
 
-  @Autowired
-  public UserServiceImpl(UserRepository userRepository, UserMapper userMapper) {
-    this.userRepository = userRepository;
-    this.userMapper = userMapper;
-  }
-
   @Override
   @Transactional
   public UserResponseDTO create(UserCreateRequestDTO dto) {
 
     if (userRepository.existsByEmail(dto.email())) {
+      log.warn("User creation failed: email already exists | email={}", dto.email());
       throw buildConflictException(USER_ALREADY_EXISTS_WITH_EMAIL, dto.email());
     }
 
     User user = userMapper.toEntity(dto);
-    return userMapper.toDto(userRepository.save(user));
+    User savedUser = userRepository.save(user);
+
+    log.info("User created successfully | userId={}", savedUser.getId());
+    return userMapper.toDto(savedUser);
   }
 
   @Override
@@ -55,12 +56,16 @@ public class UserServiceImpl implements UserService {
     User user =
         userRepository
             .findById(userId)
-            .orElseThrow(() -> buildNotFoundException(USER_NOT_FOUND, userId));
+            .orElseThrow(
+                () -> {
+                  log.warn("User update failed: user not found | userId={}", userId);
+                  return buildNotFoundException(USER_NOT_FOUND, userId);
+                });
 
     userMapper.updateEntity(dto, user);
 
     User updatedUser = userRepository.save(user);
-
+    log.info("User updated successfully | userId={}", userId);
     return userMapper.toDto(updatedUser);
   }
 
@@ -72,7 +77,11 @@ public class UserServiceImpl implements UserService {
     User user =
         userRepository
             .findById(userId)
-            .orElseThrow(() -> buildNotFoundException(USER_NOT_FOUND, userId));
+            .orElseThrow(
+                () -> {
+                  log.warn("User fetch failed: user not found | userId={}", userId);
+                  return buildNotFoundException(USER_NOT_FOUND, userId);
+                });
 
     return userMapper.toDto(user);
   }
@@ -95,8 +104,10 @@ public class UserServiceImpl implements UserService {
     int updatedRows = userRepository.activateUser(userId);
 
     if (updatedRows == 0) {
+      log.warn("User activate failed: user not found | userId={}", userId);
       throw buildNotFoundException(USER_NOT_FOUND, userId);
     }
+    log.info("User activation successfully | userId={}", userId);
   }
 
   @Override
@@ -106,7 +117,9 @@ public class UserServiceImpl implements UserService {
     int updatedRows = userRepository.deactivateUser(userId);
 
     if (updatedRows == 0) {
+      log.warn("User deactivation failed: user not found | userId={}", userId);
       throw buildNotFoundException(USER_NOT_FOUND, userId);
     }
+    log.info("User deactivated successfully | userId={}", userId);
   }
 }
