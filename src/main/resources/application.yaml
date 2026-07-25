@@ -30,21 +30,15 @@ spring:
   jackson:
     time-zone: UTC
 
-  data:
-    cache:
-      type: redis
-      redis:
-        time-to-live: 600000
-        use-key-prefix: true
-        cache-null-values: false
+  cache:
+    type: redis
+    redis:
+      time-to-live: 30m
+      use-key-prefix: true
+      cache-null-values: false
 
-  logging:
-    pattern:
+logging:
+  pattern:
       console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %clr(%5p) %clr(${PID:- }){magenta} --- [%15.15t] %clr(%-40.40logger{36}){cyan} [%X{traceId:-none}] : %m%n"
   level:
       root: INFO
-
-  spring:
-    cache:
-      redis:
-        time-to-live: 30m
