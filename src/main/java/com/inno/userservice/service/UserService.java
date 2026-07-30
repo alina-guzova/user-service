@@ -9,7 +9,7 @@ import org.springframework.data.domain.Pageable;
 
 public interface UserService {
 
-  UserResponseDTO create(UserCreateRequestDTO dto);
+  UserResponseDTO create(Long id, UserCreateRequestDTO dto);
 
   UserResponseDTO update(Long userId, UserUpdateRequestDTO dto);
 

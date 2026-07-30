@@ -1,18 +1,15 @@
 package com.inno.userservice.unit;
 
-import java.util.List;
-import java.util.Optional;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.http.HttpStatus;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
+
 import com.inno.userservice.cache.UserCacheEvictor;
 import com.inno.userservice.dto.request.PaymentCardCreateRequestDTO;
 import com.inno.userservice.dto.request.PaymentCardUpdateRequestDTO;
@@ -26,34 +23,32 @@ import com.inno.userservice.repository.UserRepository;
 import com.inno.userservice.service.impl.PaymentCardServiceImpl;
 import com.inno.userservice.util.PaymentCardTestData;
 import com.inno.userservice.util.UserTestData;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.mockito.Mockito.when;
+import java.util.List;
+import java.util.Optional;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 
 @ExtendWith(MockitoExtension.class)
 class PaymentCardServiceImplTest {
 
-  @Mock
-  private UserRepository userRepository;
+  @Mock private UserRepository userRepository;
 
-  @Mock
-  private PaymentCardRepository paymentCardRepository;
+  @Mock private PaymentCardRepository paymentCardRepository;
 
-  @Mock
-  private PaymentCardMapper paymentCardMapper;
+  @Mock private PaymentCardMapper paymentCardMapper;
 
-  @Mock
-  private UserCacheEvictor userCacheEvictor;
+  @Mock private UserCacheEvictor userCacheEvictor;
 
-  @InjectMocks
-  private PaymentCardServiceImpl paymentCardService;
+  @InjectMocks private PaymentCardServiceImpl paymentCardService;
 
   @Nested
   class CreateTests {
@@ -64,7 +59,7 @@ class PaymentCardServiceImplTest {
       PaymentCardCreateRequestDTO requestDto = PaymentCardTestData.buildCreateRequestDto();
       User user = UserTestData.buildUserEntity();
       PaymentCard mappedCard =
-        PaymentCardTestData.buildPaymentCardEntity(null, requestDto.number(), null);
+          PaymentCardTestData.buildPaymentCardEntity(null, requestDto.number(), null);
       PaymentCard savedCard = PaymentCardTestData.buildPaymentCardEntity(user);
       PaymentCardResponseDTO expectedResponse = PaymentCardTestData.buildResponseDto();
 
@@ -98,7 +93,7 @@ class PaymentCardServiceImplTest {
 
       // when & then
       BaseAppException exception =
-        assertThrows(BaseAppException.class, () -> paymentCardService.create(requestDto));
+          assertThrows(BaseAppException.class, () -> paymentCardService.create(requestDto));
 
       assertThat(exception.getStatus()).isEqualTo(HttpStatus.CONFLICT);
 
@@ -117,7 +112,7 @@ class PaymentCardServiceImplTest {
 
       // when & then
       BaseAppException exception =
-        assertThrows(BaseAppException.class, () -> paymentCardService.create(requestDto));
+          assertThrows(BaseAppException.class, () -> paymentCardService.create(requestDto));
 
       assertThat(exception.getStatus()).isEqualTo(HttpStatus.NOT_FOUND);
 
@@ -139,7 +134,7 @@ class PaymentCardServiceImplTest {
 
       // when & then
       BaseAppException exception =
-        assertThrows(BaseAppException.class, () -> paymentCardService.create(requestDto));
+          assertThrows(BaseAppException.class, () -> paymentCardService.create(requestDto));
 
       assertThat(exception.getStatus()).isEqualTo(HttpStatus.CONFLICT);
 
@@ -190,7 +185,7 @@ class PaymentCardServiceImplTest {
 
       // when & then
       BaseAppException exception =
-        assertThrows(BaseAppException.class, () -> paymentCardService.update(cardId, updateDto));
+          assertThrows(BaseAppException.class, () -> paymentCardService.update(cardId, updateDto));
 
       assertThat(exception.getStatus()).isEqualTo(HttpStatus.NOT_FOUND);
 
@@ -233,7 +228,7 @@ class PaymentCardServiceImplTest {
 
       // when & then
       BaseAppException exception =
-        assertThrows(BaseAppException.class, () -> paymentCardService.getById(cardId));
+          assertThrows(BaseAppException.class, () -> paymentCardService.getById(cardId));
 
       assertThat(exception.getStatus()).isEqualTo(HttpStatus.NOT_FOUND);
 
@@ -305,7 +300,7 @@ class PaymentCardServiceImplTest {
 
       // when & then
       BaseAppException exception =
-        assertThrows(BaseAppException.class, () -> paymentCardService.getAllCardsByUser(userId));
+          assertThrows(BaseAppException.class, () -> paymentCardService.getAllCardsByUser(userId));
 
       assertThat(exception.getStatus()).isEqualTo(HttpStatus.NOT_FOUND);
 
@@ -345,7 +340,7 @@ class PaymentCardServiceImplTest {
 
       // when & then
       BaseAppException exception =
-        assertThrows(BaseAppException.class, () -> paymentCardService.activate(cardId));
+          assertThrows(BaseAppException.class, () -> paymentCardService.activate(cardId));
 
       assertThat(exception.getStatus()).isEqualTo(HttpStatus.NOT_FOUND);
 
@@ -388,7 +383,7 @@ class PaymentCardServiceImplTest {
 
       // when & then
       BaseAppException exception =
-        assertThrows(BaseAppException.class, () -> paymentCardService.deactivate(cardId));
+          assertThrows(BaseAppException.class, () -> paymentCardService.deactivate(cardId));
 
       assertThat(exception.getStatus()).isEqualTo(HttpStatus.NOT_FOUND);
 
