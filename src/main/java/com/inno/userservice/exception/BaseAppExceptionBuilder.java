@@ -14,4 +14,8 @@ public final class BaseAppExceptionBuilder {
   public static BaseAppException buildConflictException(String messagePattern, Object... args) {
     return new BaseAppException(messagePattern.formatted(args), HttpStatus.CONFLICT);
   }
+
+  public static BaseAppException buildForbiddenException(String messagePattern, Object... args) {
+    return new BaseAppException(messagePattern.formatted(args), HttpStatus.FORBIDDEN);
+  }
 }

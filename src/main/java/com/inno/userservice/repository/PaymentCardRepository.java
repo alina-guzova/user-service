@@ -15,6 +15,8 @@ public interface PaymentCardRepository extends JpaRepository<PaymentCard, Long> 
 
   List<PaymentCard> findAllByUserId(Long userId);
 
+  boolean existsByIdAndUserId(Long id, Long userId);
+
   @Modifying(clearAutomatically = true)
   @Query("UPDATE PaymentCard p SET p.active = true WHERE p.id = :id")
   int activatePaymentCard(@Param("id") Long id);

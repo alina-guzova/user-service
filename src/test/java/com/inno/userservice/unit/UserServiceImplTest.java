@@ -2,8 +2,13 @@ package com.inno.userservice.unit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.when;
 
 import com.inno.userservice.dto.request.UserCreateRequestDTO;
 import com.inno.userservice.dto.request.UserFilterDTO;
@@ -15,6 +20,7 @@ import com.inno.userservice.mapper.UserMapper;
 import com.inno.userservice.repository.UserRepository;
 import com.inno.userservice.service.impl.UserServiceImpl;
 import com.inno.userservice.util.UserTestData;
+import jakarta.persistence.EntityManager;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Nested;
@@ -37,6 +43,8 @@ class UserServiceImplTest {
 
   @Mock private UserMapper userMapper;
 
+  @Mock private EntityManager entityManager;
+
   @InjectMocks private UserServiceImpl userService;
 
   @Nested
@@ -45,41 +53,65 @@ class UserServiceImplTest {
     @Test
     void whenCreateUser_thenUserIsSavedAndReturned() {
       // given
+      Long userId = UserTestData.DEFAULT_ID;
       UserCreateRequestDTO requestDto = UserTestData.buildCreateRequestDto();
       User mappedUser = UserTestData.buildUserEntity(null, requestDto.email());
-      User savedUser = UserTestData.buildUserEntity();
       UserResponseDTO expectedResponse = UserTestData.buildResponseDto();
 
+      when(userRepository.existsById(userId)).thenReturn(false);
       when(userRepository.existsByEmail(requestDto.email())).thenReturn(false);
       when(userMapper.toEntity(requestDto)).thenReturn(mappedUser);
-      when(userRepository.save(mappedUser)).thenReturn(savedUser);
-      when(userMapper.toDto(savedUser)).thenReturn(expectedResponse);
+      when(userMapper.toDto(mappedUser)).thenReturn(expectedResponse);
 
       // when
-      UserResponseDTO actualResponse = userService.create(requestDto);
+      UserResponseDTO actualResponse = userService.create(userId, requestDto);
 
       // then
       assertThat(actualResponse).isNotNull().isEqualTo(expectedResponse);
 
+      verify(userRepository).existsById(userId);
       verify(userRepository).existsByEmail(requestDto.email());
       verify(userMapper).toEntity(requestDto);
-      verify(userRepository).save(mappedUser);
-      verify(userMapper).toDto(savedUser);
+      verify(entityManager).persist(mappedUser);
+      verify(userMapper).toDto(mappedUser);
+
+      assertThat(mappedUser.getId()).isEqualTo(userId);
+    }
+
+    @Test
+    void whenCreateUserWithExistingId_thenThrowConflictException() {
+      // given
+      Long userId = UserTestData.DEFAULT_ID;
+      UserCreateRequestDTO requestDto = UserTestData.buildCreateRequestDto();
+
+      when(userRepository.existsById(userId)).thenReturn(true);
+
+      // when & then
+      BaseAppException exception =
+          assertThrows(BaseAppException.class, () -> userService.create(userId, requestDto));
+
+      assertThat(exception.getStatus()).isEqualTo(HttpStatus.CONFLICT);
+
+      verify(userRepository).existsById(userId);
+      verifyNoMoreInteractions(userRepository);
+      verifyNoInteractions(userMapper, entityManager);
     }
 
     @Test
     void whenCreateUserWithExistingEmail_thenThrowConflictException() {
       // given
+      Long userId = UserTestData.DEFAULT_ID;
       UserCreateRequestDTO requestDto = UserTestData.buildCreateRequestDto();
 
       when(userRepository.existsByEmail(requestDto.email())).thenReturn(true);
 
       // when & then
       BaseAppException exception =
-          assertThrows(BaseAppException.class, () -> userService.create(requestDto));
+          assertThrows(BaseAppException.class, () -> userService.create(userId, requestDto));
 
       assertThat(exception.getStatus()).isEqualTo(HttpStatus.CONFLICT);
 
+      verify(userRepository).existsById(userId);
       verify(userRepository).existsByEmail(requestDto.email());
       verifyNoInteractions(userMapper);
       verifyNoMoreInteractions(userRepository);

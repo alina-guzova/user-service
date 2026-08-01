@@ -9,6 +9,8 @@ public class ExceptionMessages {
   // User exceptions
   public static final String USER_NOT_FOUND = "Failed to retrieve user with id = %d";
   public static final String USER_ALREADY_EXISTS_WITH_EMAIL = "User with email %s already exists";
+  public static final String USER_ALREADY_EXISTS_WITH_ID = "User with id %s already exists";
+  public static final String USER_FORBIDDEN = "You can get only your own profile";
 
   // PaymentCard exceptions
   public static final String PAYMENT_CARD_NOT_FOUND =

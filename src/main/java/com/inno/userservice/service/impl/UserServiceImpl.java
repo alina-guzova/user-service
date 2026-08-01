@@ -1,12 +1,12 @@
 package com.inno.userservice.service.impl;
 
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.domain.Specification;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import static com.inno.userservice.cache.CacheConstants.USERS_CACHE;
+import static com.inno.userservice.exception.BaseAppExceptionBuilder.buildConflictException;
+import static com.inno.userservice.exception.BaseAppExceptionBuilder.buildNotFoundException;
+import static com.inno.userservice.exception.ExceptionMessages.USER_ALREADY_EXISTS_WITH_EMAIL;
+import static com.inno.userservice.exception.ExceptionMessages.USER_ALREADY_EXISTS_WITH_ID;
+import static com.inno.userservice.exception.ExceptionMessages.USER_NOT_FOUND;
+
 import com.inno.userservice.dto.request.UserCreateRequestDTO;
 import com.inno.userservice.dto.request.UserFilterDTO;
 import com.inno.userservice.dto.request.UserUpdateRequestDTO;
@@ -16,15 +16,16 @@ import com.inno.userservice.mapper.UserMapper;
 import com.inno.userservice.repository.UserRepository;
 import com.inno.userservice.repository.specification.UserSpecifications;
 import com.inno.userservice.service.UserService;
-
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
-import static com.inno.userservice.cache.CacheConstants.USERS_CACHE;
-import static com.inno.userservice.exception.BaseAppExceptionBuilder.buildConflictException;
-import static com.inno.userservice.exception.BaseAppExceptionBuilder.buildNotFoundException;
-import static com.inno.userservice.exception.ExceptionMessages.USER_ALREADY_EXISTS_WITH_EMAIL;
-import static com.inno.userservice.exception.ExceptionMessages.USER_NOT_FOUND;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -33,10 +34,16 @@ public class UserServiceImpl implements UserService {
 
   private final UserRepository userRepository;
   private final UserMapper userMapper;
+  private final EntityManager entityManager;
 
   @Override
   @Transactional
-  public UserResponseDTO create(UserCreateRequestDTO dto) {
+  public UserResponseDTO create(Long id, UserCreateRequestDTO dto) {
+
+    if (userRepository.existsById(id)) {
+      log.warn("User creation failed: ID already exists | userId={}", id);
+      throw buildConflictException(USER_ALREADY_EXISTS_WITH_ID, id);
+    }
 
     if (userRepository.existsByEmail(dto.email())) {
       log.warn("User creation failed: email already exists | email={}", dto.email());
@@ -44,10 +51,12 @@ public class UserServiceImpl implements UserService {
     }
 
     User user = userMapper.toEntity(dto);
-    User savedUser = userRepository.save(user);
+    user.setId(id);
 
-    log.info("User created successfully | userId={}", savedUser.getId());
-    return userMapper.toDto(savedUser);
+    entityManager.persist(user);
+
+    log.info("User created successfully | userId={}", user.getId());
+    return userMapper.toDto(user);
   }
 
   @Override

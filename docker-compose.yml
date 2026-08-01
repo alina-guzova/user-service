@@ -37,11 +37,12 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILE:-docker}
       DB_HOST: user-service-db
-      DB_NAME: ${POSTGRES_DB:-user_service_db}
-      DB_USERNAME: ${POSTGRES_USER:-postgres}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      DB_PORT: 5432
+      DB_NAME: user_service_db
+      DB_USERNAME: postgres
+      DB_PASSWORD: password
       REDIS_HOST: user-service-redis
-      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PORT: 6379
     depends_on:
       user-service-db:
         condition: service_healthy
@@ -50,3 +51,8 @@ services:
 
 volumes:
   pgdata:
+
+networks:
+  default:
+    name: microservices-net
+    external: true

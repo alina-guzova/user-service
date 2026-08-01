@@ -15,10 +15,12 @@ import static com.inno.userservice.util.PaymentCardTestData.NON_EXISTENT_CARD_ID
 import static com.inno.userservice.util.PaymentCardTestData.PAYMENT_CARDS_API_PATH;
 import static com.inno.userservice.util.PaymentCardTestData.SECOND_CARD_NUMBER;
 import static com.inno.userservice.util.PaymentCardTestData.SECOND_MASKED_CARD_NUMBER;
+import static com.inno.userservice.util.UserTestData.DEFAULT_ID;
 import static com.inno.userservice.util.UserTestData.NON_EXISTENT_USER_ID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.securityContext;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -43,7 +45,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import tools.jackson.databind.ObjectMapper;
 
 class PaymentCardControllerIT extends BaseIntegrationTest {
@@ -68,6 +76,17 @@ class PaymentCardControllerIT extends BaseIntegrationTest {
     }
   }
 
+  private RequestPostProcessor userAuth(Long userId, String role) {
+    return request -> {
+      SecurityContext context = SecurityContextHolder.createEmptyContext();
+      UsernamePasswordAuthenticationToken auth =
+          new UsernamePasswordAuthenticationToken(
+              userId, null, List.of(new SimpleGrantedAuthority(role)));
+      context.setAuthentication(auth);
+      return securityContext(context).postProcessRequest(request);
+    };
+  }
+
   @Nested
   class CreateTests {
 
@@ -75,7 +94,7 @@ class PaymentCardControllerIT extends BaseIntegrationTest {
     void create_shouldCreatePaymentCardAndReturnMaskedDto_whenRequestIsValid() throws Exception {
       // given
       User user =
-          userRepository.save(UserTestData.buildUserEntity(null, UserTestData.DEFAULT_EMAIL));
+          userRepository.save(UserTestData.buildUserEntity(DEFAULT_ID, UserTestData.DEFAULT_EMAIL));
 
       PaymentCardCreateRequestDTO requestDto =
           PaymentCardCreateRequestDTO.builder()
@@ -89,6 +108,7 @@ class PaymentCardControllerIT extends BaseIntegrationTest {
       mockMvc
           .perform(
               post(PAYMENT_CARDS_API_PATH)
+                  .with(userAuth(user.getId(), "ROLE_USER"))
                   .contentType(MediaType.APPLICATION_JSON)
                   .content(objectMapper.writeValueAsString(requestDto)))
           .andExpect(status().isCreated())
@@ -104,7 +124,7 @@ class PaymentCardControllerIT extends BaseIntegrationTest {
       PaymentCard savedCard = paymentCardRepository.findAll().get(0);
       assertThat(savedCard.getNumber()).isEqualTo(PaymentCardTestData.DEFAULT_NUMBER);
       assertThat(savedCard.getHolder()).isEqualTo(PaymentCardTestData.DEFAULT_HOLDER);
-      assertThat(savedCard.getUser().getId()).isEqualTo(user.getId());
+      assertThat(savedCard.getUser().getId()).isEqualTo(DEFAULT_ID);
     }
 
     @Test
@@ -122,6 +142,7 @@ class PaymentCardControllerIT extends BaseIntegrationTest {
       mockMvc
           .perform(
               post(PAYMENT_CARDS_API_PATH)
+                  .with(userAuth(NON_EXISTENT_USER_ID, "ROLE_USER"))
                   .contentType(MediaType.APPLICATION_JSON)
                   .content(objectMapper.writeValueAsString(requestDto)))
           .andExpect(status().isNotFound())
@@ -137,7 +158,7 @@ class PaymentCardControllerIT extends BaseIntegrationTest {
     void create_shouldReturnConflict_whenCardNumberAlreadyExists() throws Exception {
       // given
       User user =
-          userRepository.save(UserTestData.buildUserEntity(null, UserTestData.DEFAULT_EMAIL));
+          userRepository.save(UserTestData.buildUserEntity(DEFAULT_ID, UserTestData.DEFAULT_EMAIL));
       PaymentCard existingCard =
           PaymentCardTestData.buildPaymentCardEntity(null, EXISTING_CARD_NUMBER, user);
       paymentCardRepository.save(existingCard);
@@ -154,6 +175,7 @@ class PaymentCardControllerIT extends BaseIntegrationTest {
       mockMvc
           .perform(
               post(PAYMENT_CARDS_API_PATH)
+                  .with(userAuth(user.getId(), "ROLE_USER"))
                   .contentType(MediaType.APPLICATION_JSON)
                   .content(objectMapper.writeValueAsString(requestDto)))
           .andExpect(status().isConflict())
@@ -172,7 +194,7 @@ class PaymentCardControllerIT extends BaseIntegrationTest {
     void create_shouldReturnConflict_whenUserReachedLimitOfFiveCards() throws Exception {
       // given
       User user =
-          userRepository.save(UserTestData.buildUserEntity(null, UserTestData.DEFAULT_EMAIL));
+          userRepository.save(UserTestData.buildUserEntity(DEFAULT_ID, UserTestData.DEFAULT_EMAIL));
 
       for (int i = 0; i < 5; i++) {
         PaymentCard card =
@@ -192,6 +214,7 @@ class PaymentCardControllerIT extends BaseIntegrationTest {
       mockMvc
           .perform(
               post(PAYMENT_CARDS_API_PATH)
+                  .with(userAuth(user.getId(), "ROLE_USER"))
                   .contentType(MediaType.APPLICATION_JSON)
                   .content(objectMapper.writeValueAsString(requestDto)))
           .andExpect(status().isConflict())
@@ -203,6 +226,33 @@ class PaymentCardControllerIT extends BaseIntegrationTest {
       // then
       assertThat(paymentCardRepository.count()).isEqualTo(5);
     }
+
+    @Test
+    void create_shouldReturnForbidden_whenUserHasAdminRole() throws Exception {
+      // given
+      User user =
+          userRepository.save(UserTestData.buildUserEntity(DEFAULT_ID, UserTestData.DEFAULT_EMAIL));
+
+      PaymentCardCreateRequestDTO requestDto =
+          PaymentCardCreateRequestDTO.builder()
+              .userId(user.getId())
+              .number(PaymentCardTestData.DEFAULT_NUMBER)
+              .holder(PaymentCardTestData.DEFAULT_HOLDER)
+              .expirationDate(PaymentCardTestData.DEFAULT_EXPIRATION_DATE_STRING)
+              .build();
+
+      // when & then
+      mockMvc
+          .perform(
+              post(PAYMENT_CARDS_API_PATH)
+                  .with(userAuth(user.getId(), "ROLE_ADMIN"))
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .content(objectMapper.writeValueAsString(requestDto)))
+          .andExpect(status().isForbidden());
+
+      // then
+      assertThat(paymentCardRepository.count()).isEqualTo(0);
+    }
   }
 
   @Nested
@@ -212,7 +262,7 @@ class PaymentCardControllerIT extends BaseIntegrationTest {
     void update_shouldUpdatePaymentCardAndReturnUpdatedDto_whenCardExists() throws Exception {
       // given
       User user =
-          userRepository.save(UserTestData.buildUserEntity(null, UserTestData.DEFAULT_EMAIL));
+          userRepository.save(UserTestData.buildUserEntity(DEFAULT_ID, UserTestData.DEFAULT_EMAIL));
       PaymentCard initialCard =
           paymentCardRepository.save(
               PaymentCardTestData.buildPaymentCardEntity(
@@ -225,6 +275,7 @@ class PaymentCardControllerIT extends BaseIntegrationTest {
       mockMvc
           .perform(
               put(CARD_BY_ID_API_PATH, cardId)
+                  .with(userAuth(user.getId(), "ROLE_USER"))
                   .contentType(MediaType.APPLICATION_JSON)
                   .content(objectMapper.writeValueAsString(updateRequestDto)))
           .andExpect(status().isOk())
@@ -242,6 +293,7 @@ class PaymentCardControllerIT extends BaseIntegrationTest {
     }
 
     @Test
+    @WithMockUser(roles = "ADMIN")
     void update_shouldReturnNotFound_whenCardDoesNotExist() throws Exception {
       // given
       PaymentCardUpdateRequestDTO updateRequestDto = PaymentCardTestData.buildUpdateRequestDto();
@@ -258,6 +310,29 @@ class PaymentCardControllerIT extends BaseIntegrationTest {
           .andExpect(
               jsonPath("$.message", is(PAYMENT_CARD_NOT_FOUND.formatted(NON_EXISTENT_CARD_ID))));
     }
+
+    @Test
+    void update_shouldReturnForbidden_whenUserIsNotOwnerAndNotAdmin() throws Exception {
+      // given
+      User owner =
+          userRepository.save(UserTestData.buildUserEntity(DEFAULT_ID, UserTestData.DEFAULT_EMAIL));
+      PaymentCard card =
+          paymentCardRepository.save(
+              PaymentCardTestData.buildPaymentCardEntity(
+                  null, PaymentCardTestData.DEFAULT_NUMBER, owner));
+
+      PaymentCardUpdateRequestDTO updateRequestDto = PaymentCardTestData.buildUpdateRequestDto();
+      Long foreignUserId = 999L;
+
+      // when & then
+      mockMvc
+          .perform(
+              put(CARD_BY_ID_API_PATH, card.getId())
+                  .with(userAuth(foreignUserId, "ROLE_USER"))
+                  .contentType(MediaType.APPLICATION_JSON)
+                  .content(objectMapper.writeValueAsString(updateRequestDto)))
+          .andExpect(status().isForbidden());
+    }
   }
 
   @Nested
@@ -267,7 +342,7 @@ class PaymentCardControllerIT extends BaseIntegrationTest {
     void getById_shouldReturnPaymentCardDto_whenCardExists() throws Exception {
       // given
       User user =
-          userRepository.save(UserTestData.buildUserEntity(null, UserTestData.DEFAULT_EMAIL));
+          userRepository.save(UserTestData.buildUserEntity(DEFAULT_ID, UserTestData.DEFAULT_EMAIL));
       PaymentCard card =
           paymentCardRepository.save(
               PaymentCardTestData.buildPaymentCardEntity(
@@ -276,7 +351,7 @@ class PaymentCardControllerIT extends BaseIntegrationTest {
 
       // when & then
       mockMvc
-          .perform(get(CARD_BY_ID_API_PATH, cardId))
+          .perform(get(CARD_BY_ID_API_PATH, cardId).with(userAuth(user.getId(), "ROLE_USER")))
           .andExpect(status().isOk())
           .andExpect(jsonPath("$.id", is(cardId.intValue())))
           .andExpect(jsonPath("$.number", is(MASKED_CARD_NUMBER)))
@@ -287,9 +362,8 @@ class PaymentCardControllerIT extends BaseIntegrationTest {
     }
 
     @Test
+    @WithMockUser(roles = "ADMIN")
     void getById_shouldReturnNotFound_whenCardDoesNotExist() throws Exception {
-      // given
-
       // when & then
       mockMvc
           .perform(get(CARD_BY_ID_API_PATH, NON_EXISTENT_CARD_ID))
@@ -299,16 +373,36 @@ class PaymentCardControllerIT extends BaseIntegrationTest {
           .andExpect(
               jsonPath("$.message", is(PAYMENT_CARD_NOT_FOUND.formatted(NON_EXISTENT_CARD_ID))));
     }
+
+    @Test
+    void getById_shouldReturnForbidden_whenUserIsNotOwnerAndNotAdmin() throws Exception {
+      // given
+      User owner =
+          userRepository.save(UserTestData.buildUserEntity(DEFAULT_ID, UserTestData.DEFAULT_EMAIL));
+      PaymentCard card =
+          paymentCardRepository.save(
+              PaymentCardTestData.buildPaymentCardEntity(
+                  null, PaymentCardTestData.DEFAULT_NUMBER, owner));
+
+      Long foreignUserId = 999L;
+
+      // when & then
+      mockMvc
+          .perform(
+              get(CARD_BY_ID_API_PATH, card.getId()).with(userAuth(foreignUserId, "ROLE_USER")))
+          .andExpect(status().isForbidden());
+    }
   }
 
   @Nested
   class GetAllTests {
 
     @Test
+    @WithMockUser(roles = "ADMIN")
     void getAll_shouldReturnPagedPaymentCards_whenCardsExist() throws Exception {
       // given
       User user =
-          userRepository.save(UserTestData.buildUserEntity(null, UserTestData.DEFAULT_EMAIL));
+          userRepository.save(UserTestData.buildUserEntity(DEFAULT_ID, UserTestData.DEFAULT_EMAIL));
 
       PaymentCard card1 =
           PaymentCardTestData.buildPaymentCardEntity(
@@ -332,6 +426,7 @@ class PaymentCardControllerIT extends BaseIntegrationTest {
     }
 
     @Test
+    @WithMockUser(roles = "ADMIN")
     void getAll_shouldReturnEmptyPage_whenNoCardsExist() throws Exception {
       // when & then
       mockMvc
@@ -349,7 +444,7 @@ class PaymentCardControllerIT extends BaseIntegrationTest {
     void getAllCardsByUser_shouldReturnCardsList_whenUserExists() throws Exception {
       // given
       User user =
-          userRepository.save(UserTestData.buildUserEntity(null, UserTestData.DEFAULT_EMAIL));
+          userRepository.save(UserTestData.buildUserEntity(DEFAULT_ID, UserTestData.DEFAULT_EMAIL));
       PaymentCard card1 =
           PaymentCardTestData.buildPaymentCardEntity(
               null, PaymentCardTestData.DEFAULT_NUMBER, user);
@@ -359,7 +454,8 @@ class PaymentCardControllerIT extends BaseIntegrationTest {
 
       // when & then
       mockMvc
-          .perform(get(CARDS_BY_USER_API_PATH, user.getId()))
+          .perform(
+              get(CARDS_BY_USER_API_PATH, user.getId()).with(userAuth(user.getId(), "ROLE_USER")))
           .andExpect(status().isOk())
           .andExpect(jsonPath("$.length()", is(2)))
           .andExpect(jsonPath("$[0].number", is(MASKED_CARD_NUMBER)))
@@ -367,9 +463,8 @@ class PaymentCardControllerIT extends BaseIntegrationTest {
     }
 
     @Test
+    @WithMockUser(roles = "ADMIN")
     void getAllCardsByUser_shouldReturnNotFound_whenUserDoesNotExist() throws Exception {
-      // given
-
       // when & then
       mockMvc
           .perform(get(CARDS_BY_USER_API_PATH, NON_EXISTENT_USER_ID))
@@ -377,6 +472,21 @@ class PaymentCardControllerIT extends BaseIntegrationTest {
           .andExpect(jsonPath("$.status", is(404)))
           .andExpect(jsonPath("$.error", is("Not Found")))
           .andExpect(jsonPath("$.message", is(USER_NOT_FOUND.formatted(NON_EXISTENT_USER_ID))));
+    }
+
+    @Test
+    void getAllCardsByUser_shouldReturnForbidden_whenUserRequestsOtherUserCardsAndNotAdmin()
+        throws Exception {
+      // given
+      User owner =
+          userRepository.save(UserTestData.buildUserEntity(DEFAULT_ID, UserTestData.DEFAULT_EMAIL));
+      Long foreignUserId = 999L;
+
+      // when & then
+      mockMvc
+          .perform(
+              get(CARDS_BY_USER_API_PATH, owner.getId()).with(userAuth(foreignUserId, "ROLE_USER")))
+          .andExpect(status().isForbidden());
     }
   }
 
@@ -387,7 +497,7 @@ class PaymentCardControllerIT extends BaseIntegrationTest {
     void activate_shouldActivateCardAndEvictCache_whenCardExists() throws Exception {
       // given
       User user =
-          userRepository.save(UserTestData.buildUserEntity(null, UserTestData.DEFAULT_EMAIL));
+          userRepository.save(UserTestData.buildUserEntity(DEFAULT_ID, UserTestData.DEFAULT_EMAIL));
       PaymentCard card =
           PaymentCardTestData.buildPaymentCardEntity(
               null, PaymentCardTestData.DEFAULT_NUMBER, user);
@@ -401,7 +511,9 @@ class PaymentCardControllerIT extends BaseIntegrationTest {
       }
 
       // when & then
-      mockMvc.perform(patch(ACTIVATE_CARD_API_PATH, cardId)).andExpect(status().isNoContent());
+      mockMvc
+          .perform(patch(ACTIVATE_CARD_API_PATH, cardId).with(userAuth(user.getId(), "ROLE_USER")))
+          .andExpect(status().isNoContent());
 
       // then
       PaymentCard updatedCard = paymentCardRepository.findById(cardId).orElseThrow();
@@ -413,6 +525,7 @@ class PaymentCardControllerIT extends BaseIntegrationTest {
     }
 
     @Test
+    @WithMockUser(roles = "ADMIN")
     void activate_shouldReturnNotFound_whenCardDoesNotExist() throws Exception {
       // when & then
       mockMvc
@@ -423,6 +536,26 @@ class PaymentCardControllerIT extends BaseIntegrationTest {
           .andExpect(
               jsonPath("$.message", is(PAYMENT_CARD_NOT_FOUND.formatted(NON_EXISTENT_CARD_ID))));
     }
+
+    @Test
+    void activate_shouldReturnForbidden_whenUserIsNotOwnerAndNotAdmin() throws Exception {
+      // given
+      User owner =
+          userRepository.save(UserTestData.buildUserEntity(DEFAULT_ID, UserTestData.DEFAULT_EMAIL));
+      PaymentCard card =
+          paymentCardRepository.save(
+              PaymentCardTestData.buildPaymentCardEntity(
+                  null, PaymentCardTestData.DEFAULT_NUMBER, owner));
+
+      Long foreignUserId = 999L;
+
+      // when & then
+      mockMvc
+          .perform(
+              patch(ACTIVATE_CARD_API_PATH, card.getId())
+                  .with(userAuth(foreignUserId, "ROLE_USER")))
+          .andExpect(status().isForbidden());
+    }
   }
 
   @Nested
@@ -432,7 +565,7 @@ class PaymentCardControllerIT extends BaseIntegrationTest {
     void deactivate_shouldDeactivateCardAndEvictCache_whenCardExists() throws Exception {
       // given
       User user =
-          userRepository.save(UserTestData.buildUserEntity(null, UserTestData.DEFAULT_EMAIL));
+          userRepository.save(UserTestData.buildUserEntity(DEFAULT_ID, UserTestData.DEFAULT_EMAIL));
       PaymentCard card =
           PaymentCardTestData.buildPaymentCardEntity(
               null, PaymentCardTestData.DEFAULT_NUMBER, user);
@@ -446,7 +579,10 @@ class PaymentCardControllerIT extends BaseIntegrationTest {
       }
 
       // when & then
-      mockMvc.perform(patch(DEACTIVATE_CARD_API_PATH, cardId)).andExpect(status().isNoContent());
+      mockMvc
+          .perform(
+              patch(DEACTIVATE_CARD_API_PATH, cardId).with(userAuth(user.getId(), "ROLE_USER")))
+          .andExpect(status().isNoContent());
 
       // then
       PaymentCard updatedCard = paymentCardRepository.findById(cardId).orElseThrow();
@@ -458,6 +594,7 @@ class PaymentCardControllerIT extends BaseIntegrationTest {
     }
 
     @Test
+    @WithMockUser(roles = "ADMIN")
     void deactivate_shouldReturnNotFound_whenCardDoesNotExist() throws Exception {
       // when & then
       mockMvc
@@ -467,6 +604,26 @@ class PaymentCardControllerIT extends BaseIntegrationTest {
           .andExpect(jsonPath("$.error", is("Not Found")))
           .andExpect(
               jsonPath("$.message", is(PAYMENT_CARD_NOT_FOUND.formatted(NON_EXISTENT_CARD_ID))));
+    }
+
+    @Test
+    void deactivate_shouldReturnForbidden_whenUserIsNotOwnerAndNotAdmin() throws Exception {
+      // given
+      User owner =
+          userRepository.save(UserTestData.buildUserEntity(DEFAULT_ID, UserTestData.DEFAULT_EMAIL));
+      PaymentCard card =
+          paymentCardRepository.save(
+              PaymentCardTestData.buildPaymentCardEntity(
+                  null, PaymentCardTestData.DEFAULT_NUMBER, owner));
+
+      Long foreignUserId = 999L;
+
+      // when & then
+      mockMvc
+          .perform(
+              patch(DEACTIVATE_CARD_API_PATH, card.getId())
+                  .with(userAuth(foreignUserId, "ROLE_USER")))
+          .andExpect(status().isForbidden());
     }
   }
 }
