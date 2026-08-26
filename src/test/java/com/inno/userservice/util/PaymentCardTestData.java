@@ -14,11 +14,13 @@ import org.springframework.data.domain.PageImpl;
 public final class PaymentCardTestData {
 
   // --- API Paths ---
-  public static final String PAYMENT_CARDS_API_PATH = "/api/v1/payment-cards";
-  public static final String CARD_BY_ID_API_PATH = "/api/v1/payment-cards/{cardId}";
-  public static final String CARDS_BY_USER_API_PATH = "/api/v1/payment-cards/user/{userId}";
-  public static final String ACTIVATE_CARD_API_PATH = "/api/v1/payment-cards/{cardId}/activate";
-  public static final String DEACTIVATE_CARD_API_PATH = "/api/v1/payment-cards/{cardId}/deactivate";
+  public static final String PAYMENT_CARDS_API_PATH = "/api/v1/users/payment-cards";
+  public static final String CARD_BY_ID_API_PATH = "/api/v1/users/payment-cards/{cardId}";
+  public static final String CARDS_BY_USER_API_PATH = "/api/v1/users/payment-cards/user/{userId}";
+  public static final String ACTIVATE_CARD_API_PATH =
+      "/api/v1/users/payment-cards/{cardId}/activate";
+  public static final String DEACTIVATE_CARD_API_PATH =
+      "/api/v1/users/payment-cards/{cardId}/deactivate";
 
   // --- Test Identifiers & Numbers ---
   public static final Long DEFAULT_CARD_ID = 1L;

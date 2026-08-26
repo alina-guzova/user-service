@@ -8,6 +8,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -78,14 +79,20 @@ public class GlobalExceptionHandler {
     return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
   }
 
-  @ExceptionHandler(AccessDeniedException.class)
-  public ResponseEntity<ExceptionResponseDTO> handleAccessDenied(AccessDeniedException ex) {
-    log.warn("Access denied | message={}", ex.getMessage());
-
+  @ExceptionHandler(AuthenticationException.class)
+  public ResponseEntity<ExceptionResponseDTO> handleAuthenticationException(
+      AuthenticationException ex) {
     ExceptionResponseDTO response =
         ExceptionResponseDTO.of(
-            HttpStatus.FORBIDDEN,
-            "Access is denied: you do not have permission to access this resource");
+            HttpStatus.UNAUTHORIZED, "Full authentication is required to access this resource");
+    return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
+  }
+
+  @ExceptionHandler(AccessDeniedException.class)
+  public ResponseEntity<ExceptionResponseDTO> handleAccessDeniedException(
+      AccessDeniedException ex) {
+    ExceptionResponseDTO response =
+        ExceptionResponseDTO.of(HttpStatus.FORBIDDEN, "Access denied: insufficient permissions");
     return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
   }
 

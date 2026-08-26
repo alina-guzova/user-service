@@ -1,5 +1,6 @@
 package com.inno.userservice.configuration;
 
+import com.inno.userservice.security.HeaderAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -11,6 +12,7 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.servlet.HandlerExceptionResolver;
 
 @RequiredArgsConstructor
 @Configuration
@@ -18,20 +20,34 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @EnableMethodSecurity
 public class SecurityConfig {
 
-  private final JwtAuthenticationFilter jwtAuthFilter;
+  private final HeaderAuthenticationFilter headerAuthFilter;
+  private final HandlerExceptionResolver handlerExceptionResolver;
 
   @Bean
   public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
     http.csrf(AbstractHttpConfigurer::disable)
         .sessionManagement(
             session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        .exceptionHandling(
+            exception ->
+                exception
+                    .authenticationEntryPoint(
+                        (request, response, authException) -> {
+                          handlerExceptionResolver.resolveException(
+                              request, response, null, authException);
+                        })
+                    .accessDeniedHandler(
+                        (request, response, accessDeniedException) -> {
+                          handlerExceptionResolver.resolveException(
+                              request, response, null, accessDeniedException);
+                        }))
         .authorizeHttpRequests(
             auth ->
                 auth.requestMatchers(HttpMethod.POST, "/api/v1/users/{userId}")
                     .permitAll()
                     .anyRequest()
                     .authenticated())
-        .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+        .addFilterBefore(headerAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
     return http.build();
   }
