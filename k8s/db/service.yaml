@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-service-db-service
+  namespace: dev
+spec:
+  type: ClusterIP
+  selector:
+    app: user-service-db
+  ports:
+    - name: user-db-port
+      port: 5432
+      targetPort: user-db-port

@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: user-service-db-config
+  namespace: dev
+data:
+  POSTGRES_DB: user_service_db
