@@ -12,11 +12,6 @@ spring:
     enabled: true
     change-log: classpath:db/changelog/db.changelog-master.yaml
 
-application:
-  security:
-    jwt:
-      secret-key: 8ify9bC8hqNAE3Y/A4SatBDXR539wGPO3AEFMrXKQwAv8uxQmgB7rwCHLgN7c3Oe8mZbQ7s+/DhKizAqDRjkXw==
-
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
@@ -36,6 +31,16 @@ application:
       time-to-live: 30m
       use-key-prefix: true
       cache-null-values: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,info"
+  endpoint:
+    health:
+      probes:
+        enabled: true
 
 logging:
   pattern:
